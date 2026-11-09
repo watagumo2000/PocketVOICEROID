@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -485,12 +486,14 @@ fun VpTextField(
     placeholder: String = "",
     singleLine: Boolean = true,
     minLines: Int = 1,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, style = VpType.label)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
+            keyboardOptions = keyboardOptions,
             singleLine = singleLine,
             minLines = minLines,
             maxLines = if (singleLine) 1 else 5,

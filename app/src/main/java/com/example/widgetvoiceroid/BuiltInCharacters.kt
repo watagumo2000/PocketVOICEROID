@@ -39,7 +39,7 @@ class CharacterSeed(
     val lines: List<SeedLine>,
     val timeLines: Map<TimeSlot, List<SeedLine>> = emptyMap(),
     val conditionLines: List<Pair<Condition, SeedLine>> = emptyList(),  // 曜日・記念日・電池などのセリフ
-    val motion: IdleMotion = IdleMotion.None,
+    val motion: IdleMotion = IdleMotion.NONE,
 ) {
     init {
         require(Expression.NORMAL in faces) { "${name}には NORMAL の表情が必要です" }
@@ -62,7 +62,8 @@ class CharacterSeed(
                 val face = if (line.expression in faces) line.expression else Expression.NORMAL
                 Line(id = "$id-$i", text = line.text, faceId = face.name, condition = condition)
             },
-            floating = motion is IdleMotion.Floating,
+            floating = motion != IdleMotion.NONE,
+            idleMotion = motion,
             seedRevision = SEED_REVISION,
         )
     }

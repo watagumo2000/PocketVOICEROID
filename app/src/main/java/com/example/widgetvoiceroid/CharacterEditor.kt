@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.widgetvoiceroid.ui.theme.VpColor
 import com.example.widgetvoiceroid.ui.theme.VpType
+import com.example.widgetvoiceroid.ui.theme.contentColorOn
 import kotlinx.coroutines.launch
 
 // 選べるテーマ色。どれも上に ink の文字が読める淡い色
@@ -540,22 +542,68 @@ private fun ProfileCard(draft: Character, onChange: (Character) -> Unit) {
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("テーマ色", style = VpType.label)
-            ColorPalette(selected = draft.color, onSelect = { onChange(draft.copy(color = it)) })
+            ColorPalette(selected = draft.color, name = draft.name, onSelect = { onChange(draft.copy(color = it)) })
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("ふわふわ動く", style = VpType.label)
-                Text("待っている間、ゆっくり上下に揺れます", style = VpType.caption)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("動き方", style = VpType.label)
+            ChoiceRow {
+                IdleMotion.entries.forEach { motion ->
+                    VpSmallButton(
+                        motion.label,
+                        onClick = { onChange(draft.withMotion(motion)) },
+                        selected = draft.motion == motion,
+                        selectedColor = draft.themeColor,
+                    )
+                }
             }
-            VpSwitch(checked = draft.floating, onCheckedChange = { onChange(draft.copy(floating = it)) })
+            MotionPreview(draft)
         }
     }
 }
 
+// 選んだ動き方のお試し表示(基本の表情を小さく動かす)
 @Composable
-private fun ColorPalette(selected: Int, onSelect: (Int) -> Unit) {
+private fun MotionPreview(character: Character) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+            modifier = Modifier
+                .size(width = 88.dp, height = 104.dp)
+                .vpSurface(RadiusLg, fill = character.themeColor, border = 2.dp)
+                .clip(RadiusLg)
+                .padding(top = 18.dp, start = 6.dp, end = 6.dp),
+        ) {
+            // 動き方を切り替えたら、動きを最初からやり直す
+            key(character.motion) {
+                MotionBox(character.motion, Modifier.fillMaxSize()) {
+                    FaceImage(
+                        character = character,
+                        face = character.defaultFace,
+                        maxSize = 320,
+                        alignment = Alignment.BottomCenter,
+                        placeholderTextSize = 32.sp,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        Text(character.motion.description, style = VpType.caption, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ColorPalette(selected: Int, name: String, onSelect: (Int) -> Unit) {
+    // パレットにない色(自分で決めた色)は、最後に並べる
     val colors = if (selected in Palette) Palette else Palette + selected
+    var picking by rememberSaveable { mutableStateOf(false) }
+    if (picking) {
+        ColorPickerDialog(
+            initial = selected,
+            name = name,
+            onDismiss = { picking = false },
+            onPick = { picking = false; onSelect(it) },
+        )
+    }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -577,9 +625,21 @@ private fun ColorPalette(selected: Int, onSelect: (Int) -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 if (isSelected) {
-                    Box(Modifier.size(12.dp).background(VpColor.ink, CircleShape))
+                    Box(Modifier.size(12.dp).background(contentColorOn(Color(color)), CircleShape))
                 }
             }
+        }
+        // 自分で色を決める
+        Box(
+            modifier = Modifier
+                .padding(end = 4.dp, bottom = 4.dp)
+                .size(40.dp)
+                .vpSurface(CircleShape, fill = VpColor.surface, border = 2.dp)
+                .clickable(role = Role.Button) { picking = true }
+                .semantics { contentDescription = "色を自分で決める" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("＋", style = VpType.button.copy(color = VpColor.ink))
         }
     }
 }

@@ -122,5 +122,5 @@ val akaneSeed = CharacterSeed(
         Condition.LongAbsence to SeedLine("どこ行っとったん！うち、ずっと待っとったんやで…", Expression.PLEADING),
         Condition.LongAbsence to SeedLine("久しぶりやなぁ！元気にしとった？", Expression.SMILE),
     ),
-    motion = IdleMotion.Floating(),
+    motion = IdleMotion.FLOAT,
 )

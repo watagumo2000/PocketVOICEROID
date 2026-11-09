@@ -174,4 +174,28 @@ class CharacterTest {
         assertEquals("平日", Condition.Weekdays(Weekday.entries.toSet() - setOf(Weekday.SAT, Weekday.SUN)).label)
         assertEquals("月・金", Condition.Weekdays(setOf(Weekday.FRI, Weekday.MON)).label)
     }
+
+    @Test
+    fun 古いデータの動き方は_floating_から決める() {
+        val json = CharacterRepository.json
+        val on = json.decodeFromString<Character>("""{"id":"a","name":"a","color":0,"floating":true}""")
+        val off = json.decodeFromString<Character>("""{"id":"b","name":"b","color":0,"floating":false}""")
+        assertEquals(IdleMotion.FLOAT, on.motion)
+        assertEquals(IdleMotion.NONE, off.motion)
+    }
+
+    @Test
+    fun 動き方を保存して読み直せる() {
+        val json = CharacterRepository.json
+        val c = Character(id = "c", name = "c", color = 0).withMotion(IdleMotion.HOP)
+        val restored = json.decodeFromString<Character>(json.encodeToString(c))
+        assertEquals(IdleMotion.HOP, restored.motion)
+        assertEquals(IdleMotion.NONE, c.withMotion(IdleMotion.NONE).motion)
+        assertEquals(false, c.withMotion(IdleMotion.NONE).floating)
+    }
+
+    @Test
+    fun 内蔵キャラはふわふわ() {
+        for (c in defaults) assertEquals(IdleMotion.FLOAT, c.motion)
+    }
 }

@@ -118,5 +118,5 @@ val aoiSeed = CharacterSeed(
         Condition.LongAbsence to SeedLine("…ずいぶん久しぶりですね。心配したんですから。", Expression.POUT),
         Condition.LongAbsence to SeedLine("おかえりなさい。また会えてうれしいです。", Expression.CUTE),
     ),
-    motion = IdleMotion.Floating(),
+    motion = IdleMotion.FLOAT,
 )

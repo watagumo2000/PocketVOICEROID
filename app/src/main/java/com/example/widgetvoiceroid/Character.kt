@@ -55,13 +55,16 @@ data class Character(
     val color: Int,                       // テーマ色(ARGB)
     val faces: List<Face> = emptyList(),  // 先頭が「基本の表情」
     val lines: List<Line> = emptyList(),
-    val floating: Boolean = true,         // プカプカ浮かぶかどうか
+    val floating: Boolean = true,         // (古いデータ用)ふわふわ浮かぶかどうか。idleMotion がないときだけ使う
+    val idleMotion: IdleMotion? = null,   // 待機中の動き方
     val seedRevision: Int = 0,            // 内蔵キャラの初期データをどこまで取り込んだか
     val aiVoice: AiVoiceSettings = AiVoiceSettings(),  // A.I.VOICE 用リストの書き出し設定
 ) {
     val themeColor: Color get() = Color(color)
 
-    val motion: IdleMotion get() = if (floating) IdleMotion.Floating() else IdleMotion.None
+    val motion: IdleMotion get() = idleMotion ?: if (floating) IdleMotion.FLOAT else IdleMotion.NONE
+
+    fun withMotion(motion: IdleMotion): Character = copy(idleMotion = motion, floating = motion != IdleMotion.NONE)
 
     val isBuiltIn: Boolean get() = BuiltInCharacters.seed(id) != null
 
