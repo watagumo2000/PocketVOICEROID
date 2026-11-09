@@ -110,11 +110,12 @@ data class Character(
 
 fun newId(): String = UUID.randomUUID().toString()
 
-// A.I.VOICE 用のセリフリストを書き出すときの設定
+// トークソフト用のセリフリストを書き出すときの設定(保存データの名前は A.I.VOICE だけだった頃のまま)
 @Serializable
 data class AiVoiceSettings(
-    val usePreset: Boolean = false,       // 先頭にボイスプリセットのタグを付けるか
-    val preset: String = "",              // ボイスプリセット名(例:琴葉 葵)
-    val prompt: String = "＞",            // プロンプト文字列(A.I.VOICE のプロジェクト設定「ボイス」と同じにする)
+    val software: VoiceSoftware = VoiceSoftware.AIVOICE,  // どのソフト用に書き出すか
+    val usePreset: Boolean = false,       // 話者を指定するか(A.I.VOICE・VOICEROID2 はタグ、VOICEVOX は行頭のキャラ名)
+    val preset: String = "",              // ボイスプリセット名・キャラ名(例:琴葉 葵、ずんだもん（ノーマル）)
+    val prompt: String = "＞",            // プロンプト文字列(A.I.VOICE・VOICEROID2 のプロジェクト設定「ボイス」と同じにする)
     val exportedLineIds: List<String> = emptyList(),  // 最後に書き出したセリフの順番(連番で対応づけるときに使う)
 )

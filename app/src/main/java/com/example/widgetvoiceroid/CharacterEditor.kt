@@ -156,7 +156,7 @@ fun CharacterEditor(original: Character?, onClose: (savedId: String?) -> Unit) {
         picker.launch("image/*")
     }
 
-    // ---- A.I.VOICE との受け渡し ----
+    // ---- トークソフトとの受け渡し ----
     var exportDialog by remember { mutableStateOf(false) }
     var guideDialog by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<AiVoice.ImportResult?>(null) }
@@ -172,7 +172,7 @@ fun CharacterEditor(original: Character?, onClose: (savedId: String?) -> Unit) {
             val ok = runCatching {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri, "wt")!!.use {
-                        it.write(AiVoice.encode(AiVoice.buildText(lines, draft.aiVoice)))
+                        it.write(AiVoice.encode(AiVoice.buildText(lines, draft.aiVoice), draft.aiVoice.software.bom))
                     }
                 }
             }.isSuccess
@@ -432,13 +432,13 @@ fun CharacterEditor(original: Character?, onClose: (savedId: String?) -> Unit) {
                 exportDialog = false
                 val lines = AiVoice.linesToExport(draft, onlyMissing)
                 pendingExport = lines
-                exportLauncher.launch("${draft.name.trim().ifEmpty { "character" }}_AIVOICE.txt")
+                exportLauncher.launch("${draft.name.trim().ifEmpty { "character" }}_${draft.aiVoice.software.fileTag}.txt")
             },
         )
     }
 
     if (guideDialog) {
-        GuideDialog(onDismiss = { guideDialog = false })
+        GuideDialog(software = draft.aiVoice.software, onDismiss = { guideDialog = false })
     }
 
     importResult?.let { r ->
@@ -999,7 +999,7 @@ private fun Stepper(value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
     }
 }
 
-// ボイスの章:A.I.VOICE 用リストの書き出しと、ボイスの読み込み
+// ボイスの章:トークソフト用リストの書き出しと、ボイスの読み込み
 @Composable
 private fun VoiceCard(
     total: Int,
@@ -1019,10 +1019,10 @@ private fun VoiceCard(
     ) {
         Text("ボイス付きのセリフ $voiced / $total", style = VpType.label.copy(fontSize = 16.sp))
         Text(
-            "A.I.VOICE で読み込めるセリフのリストを書き出せます！作ったボイスはフォルダごと読み込むと、セリフに自動で付きます。",
+            "A.I.VOICE・VOICEVOX などのトークソフト用に、セリフのリストを書き出せます！作ったボイスはフォルダごと読み込むと、セリフに自動で付きます。",
             style = VpType.body.copy(fontSize = 14.sp),
         )
-        VpButton("A.I.VOICE用のリストを書き出す", onClick = onExport, modifier = Modifier.fillMaxWidth())
+        VpButton("トークソフト用のリストを書き出す", onClick = onExport, modifier = Modifier.fillMaxWidth())
         VpButton("ボイスのフォルダを読み込む", onClick = onImportFolder, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             VpSmallButton("ファイルを選んで読み込む", onClick = onImportFiles)
@@ -1039,12 +1039,14 @@ private fun ExportDialog(
     onExport: (onlyMissing: Boolean) -> Unit,
 ) {
     val settings = character.aiVoice
+    val software = settings.software
     val missing = AiVoice.linesToExport(character, onlyMissing = true).size
     val all = AiVoice.linesToExport(character, onlyMissing = false).size
     var onlyMissing by remember { mutableStateOf(missing > 0) }
+    val tooLong = AiVoice.tooLong(AiVoice.linesToExport(character, onlyMissing), software)
 
     VpDialog(
-        title = "A.I.VOICE用のリスト",
+        title = "セリフのリスト",
         onDismiss = onDismiss,
         buttons = {
             VpSmallButton("キャンセル", onClick = onDismiss)
@@ -1061,6 +1063,20 @@ private fun ExportDialog(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("使うソフト", style = VpType.label)
+                ChoiceRow {
+                    VoiceSoftware.entries.forEach { s ->
+                        VpSmallButton(
+                            s.label,
+                            onClick = { onChange(settings.copy(software = s)) },
+                            selected = s == software,
+                            selectedColor = character.themeColor,
+                        )
+                    }
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("書き出すセリフ", style = VpType.label)
                 ChoiceRow {
                     VpSmallButton(
@@ -1076,35 +1092,51 @@ private fun ExportDialog(
                         selectedColor = character.themeColor,
                     )
                 }
+                if (tooLong > 0) {
+                    Text(
+                        "${software.label} は1セリフ${software.maxChars}文字までです。超えているセリフが${tooLong}個あります。",
+                        style = VpType.caption,
+                    )
+                }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("ボイスプリセットを指定する", style = VpType.label)
-                    Text("先頭にタグを付けて、開いたときに声が選ばれるようにします", style = VpType.caption)
-                }
-                VpSwitch(
-                    checked = settings.usePreset,
-                    onCheckedChange = { on ->
-                        onChange(settings.copy(usePreset = on, preset = settings.preset.ifBlank { character.name.trim() }))
-                    },
-                )
-            }
-            if (settings.usePreset) {
-                VpTextField(
-                    value = settings.preset,
-                    onValueChange = { onChange(settings.copy(preset = it)) },
-                    label = "ボイスプリセット名",
+            when (software.speaker) {
+                SpeakerStyle.PRESET_TAG -> SpeakerSettings(
+                    character = character,
+                    settings = settings,
+                    onChange = onChange,
+                    title = "ボイスプリセットを指定する",
+                    caption = "セリフの先頭にタグを付けて、開いたときに声が選ばれるようにします",
+                    fieldLabel = "ボイスプリセット名",
                     placeholder = "例:琴葉 葵",
-                )
-                VpTextField(
-                    value = settings.prompt,
-                    onValueChange = { onChange(settings.copy(prompt = it)) },
-                    label = "プロンプト文字列",
-                    placeholder = "＞",
-                )
-                Text(
-                    "A.I.VOICE の「プロジェクト設定」→「ボイス」のプロンプト文字列と同じにしてください。",
+                ) {
+                    VpTextField(
+                        value = settings.prompt,
+                        onValueChange = { onChange(settings.copy(prompt = it)) },
+                        label = "プロンプト文字列",
+                        placeholder = "＞",
+                    )
+                    Text(
+                        "${software.label} の「プロジェクト設定」→「ボイス」のプロンプト文字列と同じにしてください。",
+                        style = VpType.caption,
+                    )
+                }
+                SpeakerStyle.NAME_COMMA -> SpeakerSettings(
+                    character = character,
+                    settings = settings,
+                    onChange = onChange,
+                    title = "キャラクターを指定する",
+                    caption = "行の先頭にキャラ名を付けて、読み込んだときにキャラが選ばれるようにします",
+                    fieldLabel = "キャラ名(スタイル)",
+                    placeholder = "例:ずんだもん（ノーマル）",
+                ) {
+                    Text(
+                        "VOICEVOX のキャラ名と同じにしてください。スタイルは全角のかっこで付けます。付けなければ、いつものスタイルになります。",
+                        style = VpType.caption,
+                    )
+                }
+                SpeakerStyle.NONE -> Text(
+                    "${software.label} はテキストで声を指定できないので、${software.label} の画面でキャラを選んでください。",
                     style = VpType.caption,
                 )
             }
@@ -1112,11 +1144,46 @@ private fun ExportDialog(
     }
 }
 
-// A.I.VOICE での書き出し方
+// 話者の指定(オン・オフと名前)
 @Composable
-private fun GuideDialog(onDismiss: () -> Unit) {
+private fun SpeakerSettings(
+    character: Character,
+    settings: AiVoiceSettings,
+    onChange: (AiVoiceSettings) -> Unit,
+    title: String,
+    caption: String,
+    fieldLabel: String,
+    placeholder: String,
+    extra: @Composable () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = VpType.label)
+            Text(caption, style = VpType.caption)
+        }
+        VpSwitch(
+            checked = settings.usePreset,
+            onCheckedChange = { on ->
+                onChange(settings.copy(usePreset = on, preset = settings.preset.ifBlank { character.name.trim() }))
+            },
+        )
+    }
+    if (settings.usePreset) {
+        VpTextField(
+            value = settings.preset,
+            onValueChange = { onChange(settings.copy(preset = it)) },
+            label = fieldLabel,
+            placeholder = placeholder,
+        )
+        extra()
+    }
+}
+
+// トークソフトでの書き出し方
+@Composable
+private fun GuideDialog(software: VoiceSoftware, onDismiss: () -> Unit) {
     VpDialog(
-        title = "A.I.VOICEでの作り方",
+        title = "${software.label}での作り方",
         onDismiss = onDismiss,
         buttons = { VpButton("OK", color = VpColor.pink, onClick = onDismiss) },
     ) {
@@ -1124,19 +1191,9 @@ private fun GuideDialog(onDismiss: () -> Unit) {
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            GuideStep(1, "書き出したテキストファイルをパソコンに移して、A.I.VOICE Editor の「ファイル」→「テキストを開く」で開きます。")
-            GuideStep(
-                2,
-                "「音声保存」を押して、次のように設定します。\n" +
-                    "・ファイル分割:「指定された文字列で区切って複数のファイルに書き出す」、区切り文字列は ${AiVoice.DELIMITER}\n" +
-                    "・ファイル形式:WAVE(ファイルヘッダーあり)か MP3\n" +
-                    "・「テキストファイルを音声ファイルと一緒に保存する」にチェック\n" +
-                    "・ファイル命名規則:${AiVoice.NAMING_RULE}(連番の開始番号は1)",
-            )
-            GuideStep(3, "できたフォルダをスマホにコピーして、「ボイスのフォルダを読み込む」で選びます。")
-            GuideStep(4, "セリフにボイスが付いたら、右上の「保存する」を押して確定します。")
+            AiVoice.guide(software).forEachIndexed { i, step -> GuideStep(i + 1, step) }
             Text(
-                "テキストファイルの中身でセリフを探すので、ファイル名は自由に変えても大丈夫です。テキストファイルがないときは、連番と書き出した順番で対応づけます。",
+                "テキストファイルの中身でセリフを探すので、ファイル名は自由に変えても大丈夫です。テキストファイルがないときは、ファイル名の連番と書き出した順番で対応づけます。",
                 style = VpType.caption,
             )
         }

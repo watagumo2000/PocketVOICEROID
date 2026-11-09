@@ -85,6 +85,8 @@ class AiVoiceTest {
         assertEquals(12, AiVoice.numberIn("琴葉 葵_20261109_012.wav"))
         assertEquals(1, AiVoice.numberIn("001.wav"))
         assertEquals(null, AiVoice.numberIn("voice.wav"))
+        // VOICEVOX は「行番号_キャラ_テキスト冒頭」なので、先頭の数字を使う
+        assertEquals(3, AiVoice.numberIn("003_ずんだもん（ノーマル）_12時です.wav"))
     }
 
     @Test
@@ -94,5 +96,88 @@ class AiVoiceTest {
         assertEquals(text, AiVoice.decodeText(text.toByteArray(Charsets.UTF_8)))
         assertEquals(text, AiVoice.decodeText(text.toByteArray(charset("windows-31j"))))
         assertEquals(text, AiVoice.decodeText(byteArrayOf(0xFF.toByte(), 0xFE.toByte()) + text.toByteArray(Charsets.UTF_16LE)))
+    }
+
+    @Test
+    fun 区切り文字のソフトは区切りごとにタグを付ける() {
+        val text = AiVoice.buildText(
+            AiVoice.linesToExport(character, true),
+            AiVoiceSettings(software = VoiceSoftware.VOICEROID2, usePreset = true, preset = "琴葉 葵", prompt = "＞"),
+        )
+        assertEquals("琴葉 葵＞何か用ですか？…呼んでみただけ、ですか。\r\n##\r\n琴葉 葵＞おはようございます。\r\n", text)
+    }
+
+    @Test
+    fun VOICEVOXは1行1セリフでコンマを全角にする() {
+        val lines = listOf(Line("x", "えっと,その\nあのね", ""), Line("y", "はい", ""))
+        val plain = AiVoice.buildText(lines, AiVoiceSettings(software = VoiceSoftware.VOICEVOX))
+        assertEquals("えっと，そのあのね\r\nはい\r\n", plain)
+        val named = AiVoice.buildText(
+            lines,
+            AiVoiceSettings(software = VoiceSoftware.VOICEVOX, usePreset = true, preset = "ずんだもん（ノーマル）"),
+        )
+        assertEquals("ずんだもん（ノーマル）,えっと，そのあのね\r\nずんだもん（ノーマル）,はい\r\n", named)
+    }
+
+    @Test
+    fun 話者を指定できないソフトはタグを付けない() {
+        for (s in listOf(VoiceSoftware.AIVOICE2, VoiceSoftware.VOICEPEAK, VoiceSoftware.VOISONA)) {
+            val text = AiVoice.buildText(listOf(Line("x", "あ\nい", "")), AiVoiceSettings(software = s, usePreset = true, preset = "葵"))
+            assertEquals("あい\r\n", text)
+        }
+        assertEquals("1＜2", AiVoice.cleanText("1<2", VoiceSoftware.VOISONA))
+    }
+
+    @Test
+    fun BOMを付けるかはソフトごと() {
+        assertEquals(0xEF, AiVoice.encode("あ", VoiceSoftware.AIVOICE.bom)[0].toInt() and 0xFF)
+        assertEquals("あ", String(AiVoice.encode("あ", VoiceSoftware.VOICEVOX.bom), Charsets.UTF_8))
+    }
+
+    @Test
+    fun 文字数の上限を超えるセリフを数える() {
+        val lines = listOf(Line("x", "あ".repeat(141), ""), Line("y", "い", ""))
+        assertEquals(1, AiVoice.tooLong(lines, VoiceSoftware.VOICEPEAK))
+        assertEquals(0, AiVoice.tooLong(lines, VoiceSoftware.VOICEVOX))
+    }
+
+    @Test
+    fun 全角にしたセリフも対応づける() {
+        val c = character.copy(
+            lines = character.lines + listOf(Line("e", "A##B", ""), Line("f", "えっと,その", "")),
+        )
+        val result = AiVoice.match(
+            c,
+            listOf(
+                AiVoice.Candidate("1.wav", 1, "A＃＃B"),
+                AiVoice.Candidate("2.wav", 2, "えっと，その"),
+            ),
+        )
+        assertEquals(mapOf("1.wav" to listOf("e"), "2.wav" to listOf("f")), result)
+    }
+
+    @Test
+    fun VOICEVOXのキャラ名付きのテキストでも対応づける() {
+        val c = character.copy(aiVoice = AiVoiceSettings(software = VoiceSoftware.VOICEVOX, preset = "ずんだもん"))
+        val result = AiVoice.match(c, listOf(AiVoice.Candidate("1.wav", 1, "ずんだもん,おはようございます。")))
+        assertEquals(mapOf("1.wav" to listOf("b")), result)
+    }
+
+    @Test
+    fun 見出し付きのテキストでも対応づける() {
+        val result = AiVoice.match(character, listOf(AiVoice.Candidate("1.wav", 1, "[琴葉 葵]\r\nおはようございます。")))
+        assertEquals(mapOf("1.wav" to listOf("b")), result)
+    }
+
+    @Test
+    fun 連番が0始まりでも対応づける() {
+        val c = character.copy(aiVoice = AiVoiceSettings(exportedLineIds = listOf("b", "a")))
+        val result = AiVoice.match(c, listOf(AiVoice.Candidate("0.wav", 0, null), AiVoice.Candidate("1.wav", 1, null)))
+        assertEquals(mapOf("0.wav" to listOf("b"), "1.wav" to listOf("a")), result)
+    }
+
+    @Test
+    fun ソフトごとの作り方がある() {
+        for (s in VoiceSoftware.entries) assertTrue(AiVoice.guide(s).size >= 3)
     }
 }
