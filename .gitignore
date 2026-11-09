@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# ビルド成果物・IDE
+*.apk
+*.aab
+/.idea
+/.kotlin
+
+# 再配布しない画像(立ち絵・アプリのアイコン)。README の「画像について」を参照
+/app/src/main/res/drawable-nodpi/*.png
+/app/src/main/res/mipmap-*/ic_launcher*.webp
+/app/src/main/ic_launcher-playstore.png
