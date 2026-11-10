@@ -154,6 +154,16 @@ Character(キャラ)
 | `app/src/main/res/drawable-nodpi/akane_*.png`, `aoi_*.png` | 立ち絵(表情ごと)。必要なファイル名は `Akane.kt`・`Aoi.kt` の `R.drawable.*` を参照 |
 | `app/src/main/res/mipmap-*/ic_launcher.webp`, `ic_launcher_round.webp`, `ic_launcher_foreground.webp` | アプリのアイコン(Android Studio の Image Asset で作れます) |
 
+### おすすめの立ち絵
+
+ニコニ・コモンズで公開されている、琴葉姉妹のデフォルメ立ち絵がおすすめです。
+
+- 投稿者の素材一覧:https://commons.nicovideo.jp/users/upload/433897
+  - [琴葉姉妹 のっかり立ち絵(nc442600)](https://commons.nicovideo.jp/works/nc442600):何かに乗っている感じのデフォルメ立ち絵
+  - [琴葉姉妹 デフォルメ立ち絵(nc270629)](https://commons.nicovideo.jp/works/nc270629)
+
+ダウンロードした立ち絵から表情ごとの PNG を書き出し、上の表のファイル名にして置いてください。使うときは、各素材ページの利用条件と、琴葉姉妹の公式のガイドラインに従ってください。素材や画像を、このリポジトリやほかの場所で再配布しないでください。
+
 ## ライセンス
 
 - ソースコードは [MIT License](LICENSE) です。
